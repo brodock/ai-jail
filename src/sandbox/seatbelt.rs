@@ -282,6 +282,12 @@ fn push_static_sections(profile: &mut String) {
 
     profile.push_str("; IOKit (power management, hardware queries)\n");
     profile.push_str("(allow iokit-open)\n\n");
+
+    // The Security framework calls AuthorizationCopyRights() when
+    // accessing Keychain items that have an ACL.  Without this the
+    // authorization check fails silently and `security` returns nothing.
+    profile.push_str("; Keychain authorization\n");
+    profile.push_str("(allow authorization-right-obtain)\n\n");
 }
 
 fn push_network_section(profile: &mut String, lockdown: bool) {
@@ -761,6 +767,25 @@ mod tests {
     fn regression_sbpl_escape_controls() {
         let escaped = sbpl_escape("line1\nline2\t\\");
         assert_eq!(escaped, "line1\\nline2\\t\\\\");
+    }
+
+    #[test]
+    fn sbpl_profile_allows_authorization_right_obtain() {
+        let config = Config::default();
+        let project = PathBuf::from("/tmp/test-project");
+        let profile = generate_sbpl_profile(&config, &project, false, false);
+        assert!(profile.contains("(allow authorization-right-obtain)"));
+    }
+
+    #[test]
+    fn sbpl_profile_allows_authorization_right_obtain_in_lockdown() {
+        let config = Config {
+            lockdown: Some(true),
+            ..Config::default()
+        };
+        let project = PathBuf::from("/tmp/test-project");
+        let profile = generate_sbpl_profile(&config, &project, false, true);
+        assert!(profile.contains("(allow authorization-right-obtain)"));
     }
 
     #[test]
